@@ -822,6 +822,7 @@ function viewAuth() {
   const email = el("input", { class: "inp", type: "email", placeholder: "email", autocomplete: "email" });
   const nume = el("input", { class: "inp", type: "text", placeholder: "nume (cum apari în clasament)", autocomplete: "name" });
   const pass = el("input", { class: "inp", type: "password", placeholder: "parolă", autocomplete: "current-password" });
+  const pass2 = el("input", { class: "inp", type: "password", placeholder: "repetă parola", autocomplete: "new-password" });
 
   function paint() {
     card.innerHTML = "";
@@ -831,6 +832,7 @@ function viewAuth() {
     card.appendChild(field("Email", email));
     if (authMode === "register") card.appendChild(field("Nume", nume));
     if (authMode !== "reset") card.appendChild(field("Parolă", pass));
+    if (authMode === "register") card.appendChild(field("Confirmă parola", pass2));
     card.appendChild(msg);
     const btnLabel = authMode === "login" ? "Intră în cont" : authMode === "register" ? "Creează cont" : "Trimite link de resetare";
     card.appendChild(el("button", { class: "btn primary big", onclick: submit }, btnLabel));
@@ -848,9 +850,11 @@ function viewAuth() {
       }
       if (!e || !p) throw new Error("Completează email și parolă.");
       if (authMode === "register") {
+        if (p.length < 6) throw new Error("Parola trebuie să aibă minim 6 caractere.");
+        if (p !== pass2.value) throw new Error("Parolele nu coincid.");
         await Cloud.signUp(e, p, nume.value.trim());
-        info("Cont creat! Verifică emailul dacă ți se cere confirmarea, apoi autentifică-te.");
-        authMode = "login"; setTimeout(paint, 1500); return;
+        info("Cont creat! Te conectăm...");
+        return; // cu 'confirm email' OFF, signUp deschide sesiunea -> onChange randează app-ul
       }
       await Cloud.signIn(e, p); // onChange → render + sync
     } catch (err) { fail(err.message || String(err)); }
