@@ -24,11 +24,11 @@ const app = $("#app");
 const uid = (p = "id") => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 /* ---------- date/format ---------- */
-const LUNI = ["ian","feb","mar","apr","mai","iun","iul","aug","sep","oct","nov","dec"];
 function fmtDate(iso) {
   if (!iso) return "—";
-  const d = new Date(iso + (iso.length === 10 ? "T00:00" : ""));
-  return d.getDate() + " " + LUNI[d.getMonth()] + " " + d.getFullYear();
+  const parts = iso.slice(0, 10).split("-"); // YYYY-MM-DD
+  if (parts.length === 3) return parts[2] + "/" + parts[1] + "/" + parts[0];
+  return iso;
 }
 // YYYY-MM-DD în ora LOCALĂ (nu UTC — evită decalajul de o zi seara)
 function ymd(d) {
