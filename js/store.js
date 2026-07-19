@@ -20,6 +20,7 @@ const Store = (() => {
       specii: [...SPECII_SEED],
       culoriExtra: [], // culori „alta" introduse de utilizator
       tombstones: [],  // {id, at} — partide șterse local, de propagat la sync
+      balti: [],       // bălți proprii (adăugate de utilizator)
     };
   }
   let db = read() || blank();
@@ -88,6 +89,11 @@ const Store = (() => {
       persist();
     }
   }
+  /* ---------- bălți proprii ---------- */
+  const customBalti = () => db.balti;
+  function addCustomBalta(b) { db.balti.push(b); persist(); }
+  function removeCustomBalta(id) { db.balti = db.balti.filter(x => x.id !== id); persist(); }
+
   const producatori       = () => db.producatori;
   const carligProducatori = () => db.carligProducatori;
   const carligTipuri      = () => db.carligTipuri;
@@ -152,6 +158,7 @@ const Store = (() => {
   return {
     partide, getPartida, savePartida, removePartida,
     rawPartide, upsertRemote, hardRemove, tombstones, clearTombstones, replaceAll,
+    customBalti, addCustomBalta, removeCustomBalta,
     learn, producatori, carligProducatori, carligTipuri, specii, culoriExtra,
     exportJSON, importJSON,
     putPhoto, getPhoto, delPhoto,

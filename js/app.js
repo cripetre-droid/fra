@@ -42,7 +42,8 @@ function daysBetween(a, b) {
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) out.push(ymd(d));
   return out;
 }
-const balta = id => BALTI.find(b => b.id === id);
+const allBalti = () => BALTI.concat(Store.customBalti ? Store.customBalti() : []);
+const balta = id => BALTI.find(b => b.id === id) || (Store.customBalti ? Store.customBalti().find(b => b.id === id) : null) || null;
 
 /* ---------- toast ---------- */
 let toastT;
@@ -279,7 +280,7 @@ function viewNew() {
     // 1. baltă
     page.appendChild(sectionH("01", "Balta"));
     const bl = el("div", { class: "balti-grid" });
-    BALTI.forEach(b => {
+    allBalti().forEach(b => {
       bl.appendChild(el("button", { class: "balta-opt" + (draft.baltaId === b.id ? " on" : ""), type: "button",
         onclick: () => { draft.baltaId = b.id; draft.standNo = null; step(); } },
         el("span", { class: "cnt" }, String(b.standCount)),
@@ -808,7 +809,7 @@ function viewAuth() {
   const wrap = el("div", { class: "auth" });
   wrap.appendChild(el("img", { src: "icons/logo.svg", class: "auth-logo", alt: "" }));
   wrap.appendChild(el("div", { class: "auth-brand", html: "F<b>R</b>A" }));
-  wrap.appendChild(el("div", { class: "auth-tag" }, "Jurnal de pescuit la crap"));
+  wrap.appendChild(el("div", { class: "auth-tag" }, "Jurnal de partide de pescuit la crap"));
 
   const card = el("div", { class: "auth-card" });
   const msg = el("div", { class: "auth-msg" });
@@ -862,29 +863,73 @@ function viewBalti() {
   app.appendChild(topbar("Bălți", null));
   const page = el("div", { class: "page" });
   app.appendChild(page);
+
+  page.appendChild(el("button", { class: "btn primary big", onclick: () => addBaltaFlow() }, "＋ Adaugă baltă"));
+
+  const mine = Store.customBalti();
+  if (mine.length) {
+    page.appendChild(el("div", { class: "section" }, "Bălțile mele"));
+    mine.forEach(b => page.appendChild(baltaRow(b, true)));
+  }
+
   page.appendChild(el("div", { class: "section" }, "Bălți oficiale"));
-  BALTI.forEach(b => {
-    page.appendChild(el("div", { class: "card partida balta-row", onclick: () => openBaltaInfo(b) },
-      el("div", { class: "thumb" }, b.map ? el("img", { src: b.map, alt: "" }) : el("span", { class: "pin" }, "🎣")),
-      el("div", { class: "body" },
-        el("div", { class: "name" }, b.name),
-        el("div", { class: "sub" }, b.location || ""),
-        el("div", { class: "row", style: "display:flex;gap:8px;flex-wrap:wrap;margin-top:8px" },
-          el("span", { class: "tagpill" }, b.standCount + " standuri"),
-          ...(b.species || []).slice(0, 3).map(s => el("span", { class: "tagpill soft" }, s)))),
-      el("div", { class: "card-chev" }, "›")));
-  });
-  page.appendChild(el("div", { class: "hint" }, "Bălțile proprii (adăugate de tine) vor apărea aici — funcție în lucru."));
+  BALTI.forEach(b => page.appendChild(baltaRow(b, false)));
 }
-function openBaltaInfo(b) {
-  sheet(b.name, (body) => {
+
+function baltaRow(b, mine) {
+  return el("div", { class: "card partida balta-row", onclick: () => openBaltaInfo(b, mine) },
+    el("div", { class: "thumb" }, b.map ? el("img", { src: b.map, alt: "" }) : el("span", { class: "pin" }, "🎣")),
+    el("div", { class: "body" },
+      el("div", { class: "name" }, b.name),
+      el("div", { class: "sub" }, b.location || "—"),
+      el("div", { class: "row", style: "display:flex;gap:8px;flex-wrap:wrap;margin-top:8px" },
+        el("span", { class: "tagpill" }, (b.standCount || 0) + " standuri"),
+        mine ? el("span", { class: "tagpill soft" }, "a mea") : null,
+        ...(b.species || []).slice(0, 3).map(s => el("span", { class: "tagpill soft" }, s)))),
+    el("div", { class: "card-chev" }, "›"));
+}
+
+function openBaltaInfo(b, mine) {
+  sheet(b.name, (body, close) => {
     if (b.map) body.appendChild(el("div", { class: "mapbox" }, el("img", { src: b.map, class: "mapimg", alt: "" })));
-    body.appendChild(el("div", { class: "hint" }, b.location || ""));
-    body.appendChild(el("div", { class: "chips" }, ...(b.species || []).map(s => el("span", { class: "chip" }, s))));
-    body.appendChild(el("div", { class: "hint" }, b.standCount + " standuri"));
+    body.appendChild(el("div", { class: "hint" }, b.location || "—"));
+    if ((b.species || []).length) body.appendChild(el("div", { class: "chips" }, ...b.species.map(s => el("span", { class: "chip" }, s))));
+    body.appendChild(el("div", { class: "hint" }, (b.standCount || 0) + " standuri"));
+    body.appendChild(el("button", { class: "btn primary", onclick: () => { go("/nou"); close(); } }, "Începe o partidă aici"));
+    if (mine) body.appendChild(el("button", { class: "btn danger", onclick: () => {
+      if (confirm("Ștergi balta „" + b.name + "\"? (partidele deja notate rămân)")) { Store.removeCustomBalta(b.id); close(); render(); }
+    } }, "Șterge balta"));
   });
 }
 
+/* adaugă baltă proprie */
+function addBaltaFlow() {
+  const draft = { name: "", location: "", standCount: "", species: "" };
+  sheet("Baltă nouă", (body) => {
+    body.appendChild(field("Nume baltă *", el("input", { class: "inp", type: "text", placeholder: "ex. Balta X",
+      oninput: e => draft.name = e.target.value })));
+    body.appendChild(field("Localitate / județ", el("input", { class: "inp", type: "text", placeholder: "ex. com. Y, jud. Z",
+      oninput: e => draft.location = e.target.value })));
+    body.appendChild(field("Număr de standuri *", el("input", { class: "inp", type: "number", inputmode: "numeric", placeholder: "ex. 20",
+      oninput: e => draft.standCount = e.target.value })));
+    body.appendChild(field("Specii (separate prin virgulă)", el("input", { class: "inp", type: "text", placeholder: "Crap, Amur, Caras",
+      oninput: e => draft.species = e.target.value })));
+    body.appendChild(el("div", { class: "hint" }, "Harta o poți adăuga mai târziu — deocamdată standurile se aleg dintr-o grilă de numere."));
+  }, { saveLabel: "Salvează balta", onSave: () => {
+    const name = (draft.name || "").trim();
+    const sc = parseInt(draft.standCount, 10);
+    if (!name) { toast("Scrie numele bălții"); return false; }
+    if (!sc || sc < 1) { toast("Scrie numărul de standuri"); return false; }
+    const species = (draft.species || "").split(",").map(s => s.trim()).filter(Boolean);
+    const b = { id: "u_" + uid("b"), name, location: draft.location.trim(), standCount: sc, species, map: null, stands: null };
+    Store.addCustomBalta(b);
+    if (Cloud.enabled() && Cloud.user()) {
+      Cloud.addBalta({ id: b.id, name: b.name, location: b.location, species: b.species, stand_count: b.standCount })
+        .catch(() => {}); // best-effort backup în cloud
+    }
+    toast("Baltă adăugată"); render();
+  } });
+}
 /* ============================================================
    VIEW: statistici
    ============================================================ */
@@ -988,7 +1033,7 @@ function homeTopbar() {
       el("img", { src: "icons/logo.svg", class: "tb-logo", alt: "" }),
       el("div", { class: "wm" },
         el("div", { class: "t", html: "F<b>R</b>A" }),
-        el("div", { class: "s" }, "Jurnal de crap"))),
+        el("div", { class: "s" }, "Jurnal de partide de pescuit la crap"))),
     el("button", { class: "icon-btn", onclick: () => go("/setari"), title: "Setări" }, "⚙"));
 }
 function fab(label, onclick) {
