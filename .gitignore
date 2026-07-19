@@ -5,3 +5,13 @@ Thumbs.db
 .env
 .vscode/
 *.tmp
+
+# imagini sursa / temp (nu se publica pe site)
+480476308_*.jpg
+ChatGPT Image*.png
+icons/_*.png
+
+# secrete (NU se urca niciodata)
+pass*.txt
+*secret*
+*.key

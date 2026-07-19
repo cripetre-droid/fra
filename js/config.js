@@ -6,8 +6,8 @@
    fără conturi și fără sincronizare.
    ============================================================ */
 window.FRA_CONFIG = {
-  supabaseUrl: "",        // ex: https://xxxxxxxx.supabase.co
-  supabaseAnonKey: "",    // ex: eyJhbGciOi... (publishable/anon)
+  supabaseUrl: "https://enmameybyvpkbldgvxwn.supabase.co",
+  supabaseAnonKey: "sb_publishable_dRiVGre3ivtHcDIXd6qSMQ_CvUiayMO",  // cheie publishable (publica prin design; RLS protejeaza accesul)
 
   // dacă true, se poate folosi și fără cont (date doar locale). Recomandat true.
   allowLocalMode: true,

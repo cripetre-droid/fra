@@ -1,25 +1,22 @@
--- ============================================================
--- FRA — schema Supabase (rulează în SQL Editor din proiectul tău)
--- Multi-user: profiles + roluri, bălți proprii, partide (payload JSONB),
--- clasament opțional, storage pentru poze. Tot accesul e protejat de RLS.
--- Idempotent: se poate rula de mai multe ori fără erori.
--- ============================================================
+-- FRA schema Supabase. Idempotent: se poate rula de mai multe ori.
 
--- ---------- helper: userul curent e admin? ----------
+-- helper: userul curent e admin?
 create or replace function public.is_admin()
-returns boolean language sql stable security definer set search_path = public as $$
-  select coalesce((select role = 'admin' from public.profiles where id = auth.uid()), false);
+returns boolean
+language plpgsql stable security definer set search_path = public
+as $$
+begin
+  return coalesce((select role = 'admin' from public.profiles where id = auth.uid()), false);
+end;
 $$;
 
--- ============================================================
 -- 1. PROFILES
--- ============================================================
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
   avatar_url text,
-  role text not null default 'user',            -- 'user' | 'admin'
-  settings jsonb not null default '{}'::jsonb,   -- baltă implicită, unități, temă, preset-uri montură
+  role text not null default 'user',
+  settings jsonb not null default '{}'::jsonb,
   show_on_leaderboard boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -35,24 +32,24 @@ drop policy if exists profiles_update on public.profiles;
 create policy profiles_update on public.profiles
   for update using (id = auth.uid() or public.is_admin());
 
--- creare automată profil la înregistrare
 create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer set search_path = public as $$
+returns trigger
+language plpgsql security definer set search_path = public
+as $$
 begin
   insert into public.profiles (id, display_name)
   values (new.id, coalesce(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)))
   on conflict (id) do nothing;
   return new;
-end; $$;
+end;
+$$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users for each row execute function public.handle_new_user();
 
--- ============================================================
--- 2. BĂLȚI proprii (oficialele sunt în client/data.js, cu hărți bundle-uite)
--- ============================================================
+-- 2. BALTI proprii
 create table if not exists public.balti (
-  id text primary key,               -- ex: 'u_<uuid>'
+  id text primary key,
   owner_id uuid references auth.users(id) on delete cascade,
   is_official boolean not null default false,
   name text not null,
@@ -79,9 +76,7 @@ drop policy if exists balti_delete on public.balti;
 create policy balti_delete on public.balti
   for delete using (owner_id = auth.uid() or public.is_admin());
 
--- ============================================================
--- 3. PARTIDE (payload jsonb = zile / lansete / trăsături)
--- ============================================================
+-- 3. PARTIDE
 create table if not exists public.partide (
   id uuid primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -95,7 +90,7 @@ create table if not exists public.partide (
   capturi int not null default 0,
   total_kg numeric not null default 0,
   record_kg numeric not null default 0,
-  deleted boolean not null default false,       -- tombstone pentru sync
+  deleted boolean not null default false,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -116,12 +111,11 @@ drop policy if exists partide_delete on public.partide;
 create policy partide_delete on public.partide
   for delete using (user_id = auth.uid() or public.is_admin());
 
--- ============================================================
--- 4. CLASAMENT (doar userii care au optat; agregat, fără detalii private)
--- ============================================================
+-- 4. CLASAMENT
 create or replace function public.leaderboard()
 returns table (user_id uuid, display_name text, avatar_url text, capturi bigint, total_kg numeric, record_kg numeric)
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = public
+as $$
   select p.user_id, pr.display_name, pr.avatar_url,
          coalesce(sum(p.capturi), 0)::bigint,
          coalesce(sum(p.total_kg), 0),
@@ -133,9 +127,7 @@ language sql stable security definer set search_path = public as $$
   order by 6 desc, 5 desc;
 $$;
 
--- ============================================================
--- 5. STORAGE: poze capturi (privat, per user) + hărți (public)
--- ============================================================
+-- 5. STORAGE
 insert into storage.buckets (id, name, public) values ('capturi', 'capturi', false) on conflict (id) do nothing;
 insert into storage.buckets (id, name, public) values ('harti', 'harti', true) on conflict (id) do nothing;
 
@@ -153,9 +145,3 @@ drop policy if exists harti_read on storage.objects;
 create policy harti_read on storage.objects for select using (bucket_id = 'harti');
 drop policy if exists harti_write on storage.objects;
 create policy harti_write on storage.objects for insert with check (bucket_id = 'harti' and public.is_admin());
-
--- ============================================================
--- GATA. Ca să te faci ADMIN, după ce te-ai înregistrat în aplicație:
---   update public.profiles set role = 'admin' where id = (
---     select id from auth.users where email = 'cripetre@gmail.com');
--- ============================================================
