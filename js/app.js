@@ -54,25 +54,74 @@ function toast(msg) {
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2200);
 }
 
+/* ---------- stack de modale + butonul „back" (Android/browser) închide modalul ----------
+   Fiecare modal (sheet/confirm) împinge un state în istoric. Back-ul închide DOAR
+   modalul din vârf, fără să navigheze. Robust la modale imbricate. */
+const _modals = [];
+let _suppressPop = 0;
+window.addEventListener("popstate", () => {
+  if (_suppressPop > 0) { _suppressPop--; return; }
+  const closeTop = _modals.pop();
+  if (closeTop) closeTop();           // închide modalul din vârf (venit din back)
+});
+function pushModal(closeFromPop) {
+  history.pushState({ fraModal: true }, "");
+  _modals.push(closeFromPop);
+  return () => {                       // detach = închidere manuală (X / buton / click-out)
+    const i = _modals.lastIndexOf(closeFromPop);
+    if (i >= 0) _modals.splice(i, 1);
+    _suppressPop++; history.back();     // consumă state-ul propriu, fără efecte laterale
+  };
+}
+
 /* ---------- bottom sheet (modal) ---------- */
 function sheet(title, buildBody, { onSave, saveLabel = "Salvează" } = {}) {
   const back = el("div", { class: "sheet-back" });
   const body = el("div", { class: "sheet-body" });
+  let closed = false;
+  const closeFromPop = () => close(true);
+  const detach = pushModal(closeFromPop);
+  function close(fromPop) {
+    if (closed) return; closed = true;
+    if (!fromPop) detach();
+    back.classList.remove("show"); setTimeout(() => back.remove(), 200);
+  }
   const s = el("div", { class: "sheet" },
     el("div", { class: "sheet-head" },
       el("h3", {}, title),
-      el("button", { class: "icon-btn", onclick: close }, "✕")),
+      el("button", { class: "icon-btn", onclick: () => close() }, "✕")),
     body,
     onSave && el("div", { class: "sheet-foot" },
-      el("button", { class: "btn ghost", onclick: close }, "Renunță"),
+      el("button", { class: "btn ghost", onclick: () => close() }, "Renunță"),
       el("button", { class: "btn primary", onclick: () => { if (onSave() !== false) close(); } }, saveLabel)));
   back.appendChild(s);
   back.addEventListener("click", e => { if (e.target === back) close(); });
-  function close() { back.classList.remove("show"); setTimeout(() => back.remove(), 200); }
   document.body.appendChild(back);
   buildBody(body, close);
   requestAnimationFrame(() => back.classList.add("show"));
   return { close, body };
+}
+
+/* ---------- dialog de confirmare propriu (fără prefixul „site says") ---------- */
+function confirmDialog(message, onYes, { yesLabel = "Da", danger = false } = {}) {
+  const back = el("div", { class: "sheet-back confirm-back" });
+  let closed = false;
+  const closeFromPop = () => close(true);
+  const detach = pushModal(closeFromPop);
+  function close(fromPop) {
+    if (closed) return; closed = true;
+    if (!fromPop) detach();
+    back.classList.remove("show"); setTimeout(() => back.remove(), 200);
+  }
+  const box = el("div", { class: "confirm-box" },
+    el("div", { class: "confirm-msg" }, message),
+    el("div", { class: "confirm-actions" },
+      el("button", { class: "btn ghost", onclick: () => close() }, "Renunță"),
+      el("button", { class: "btn " + (danger ? "stopbtn" : "primary"), onclick: () => { close(); onYes(); } }, yesLabel)));
+  back.appendChild(box);
+  back.addEventListener("click", e => { if (e.target === back) close(); });
+  document.body.appendChild(back);
+  requestAnimationFrame(() => back.classList.add("show"));
 }
 
 /* ---------- controale reutilizabile ---------- */
@@ -162,6 +211,7 @@ function render() {
 
   if (h === "/") viewList();
   else if (h === "/nou") return viewNew();          // fără bottom-nav
+  else if (h === "/filtru") return viewFilter();    // fără bottom-nav
   else if (h.startsWith("/p/")) return viewPartida(h.slice(3)); // fără bottom-nav
   else if (h === "/balti") viewBalti();
   else if (h === "/stats") viewStats();
@@ -265,6 +315,117 @@ function partidaCard(p, recordTid) {
         statCell(s.capturi, "Capturi", true),
         statCell(s.total ? s.total.toFixed(1) : "—", "Kg", true))),
     hasRecord ? el("div", { class: "rec" }, "🥇 record") : null);
+}
+
+/* ============================================================
+   VIEW: filtru / căutare prin lansete (montură, distanță, cârlig, specie…)
+   ============================================================ */
+let filterState = { montura: [], balti: [], specii: [], distMin: "", distMax: "", carlig: "", doarCapturi: false };
+const emptyFilter = () => ({ montura: [], balti: [], specii: [], distMin: "", distMax: "", carlig: "", doarCapturi: false });
+
+function collectLansete() {
+  const recs = [];
+  Store.partide().forEach(p => (p.zile || []).forEach((z, zi) => (z.lansete || []).forEach(l => {
+    recs.push({ p, z, zi, l, capturi: (l.trasaturi || []).filter(t => t.rezultat === "prins") });
+  })));
+  return recs;
+}
+
+function viewFilter() {
+  app.appendChild(topbar("Filtrează / caută", () => go("/")));
+  const page = el("div", { class: "page" });
+  app.appendChild(page);
+
+  const recs = collectLansete();
+  if (!recs.length) { page.appendChild(el("div", { class: "hint" }, "Nu ai încă lansete notate. Filtrarea caută prin monturile, distanțele și cârligele din partidele tale.")); return; }
+
+  // opțiuni disponibile din datele reale
+  const monturiUsed = MONTURA_TIPURI.filter(m => recs.some(r => r.l.montura && r.l.montura.tip === m.id));
+  const baltiUsed = [...new Map(recs.filter(r => r.p.baltaId).map(r => [r.p.baltaId, r.p.baltaName || (balta(r.p.baltaId) && balta(r.p.baltaId).name) || r.p.baltaId])).entries()];
+  const speciiUsed = [...new Set(recs.flatMap(r => r.capturi.map(t => t.captura && t.captura.specie).filter(Boolean)))];
+
+  const F = filterState;
+  const toggle = (arr, v) => { const i = arr.indexOf(v); i >= 0 ? arr.splice(i, 1) : arr.push(v); run(); };
+  const mchip = (label, on, onClick, icon) => el("button", { class: "chip" + (on ? " on" : ""), type: "button", onclick: onClick },
+    icon ? el("img", { class: "m-ic sm", src: icon, alt: "" }) : null, label);
+
+  const controls = el("div", { class: "filter-controls" });
+  page.appendChild(controls);
+
+  if (monturiUsed.length) {
+    controls.appendChild(el("div", { class: "flabel" }, "Montură"));
+    const row = el("div", { class: "chips" });
+    monturiUsed.forEach(m => row.appendChild(mchip(m.label, F.montura.includes(m.id), () => toggle(F.montura, m.id), m.icon)));
+    controls.appendChild(row);
+  }
+  if (baltiUsed.length > 1) {
+    controls.appendChild(el("div", { class: "flabel" }, "Baltă"));
+    const row = el("div", { class: "chips" });
+    baltiUsed.forEach(([id, name]) => row.appendChild(mchip(name, F.balti.includes(id), () => toggle(F.balti, id))));
+    controls.appendChild(row);
+  }
+  controls.appendChild(el("div", { class: "flabel" }, "Distanță (m)"));
+  controls.appendChild(el("div", { class: "row2" },
+    el("input", { class: "inp", type: "number", inputmode: "numeric", placeholder: "min", value: F.distMin, oninput: e => { F.distMin = e.target.value; run(); } }),
+    el("input", { class: "inp", type: "number", inputmode: "numeric", placeholder: "max", value: F.distMax, oninput: e => { F.distMax = e.target.value; run(); } })));
+  controls.appendChild(field("Cârlig — mărime (nr)", el("input", { class: "inp", type: "text", inputmode: "numeric", placeholder: "ex. 6", value: F.carlig, oninput: e => { F.carlig = e.target.value; run(); } })));
+  if (speciiUsed.length) {
+    controls.appendChild(el("div", { class: "flabel" }, "Specie"));
+    const row = el("div", { class: "chips" });
+    speciiUsed.forEach(s => row.appendChild(mchip(s, F.specii.includes(s), () => toggle(F.specii, s))));
+    controls.appendChild(row);
+  }
+  controls.appendChild(el("label", { class: "switch-row" },
+    el("input", { type: "checkbox", checked: F.doarCapturi || null, onchange: e => { F.doarCapturi = e.target.checked; run(); } }),
+    el("span", {}, "Doar lansete care au prins")));
+  controls.appendChild(el("button", { class: "btn ghost small", onclick: () => { filterState = emptyFilter(); render(); } }, "↺ Resetează filtrele"));
+
+  const summary = el("div"); page.appendChild(summary);
+  const results = el("div"); page.appendChild(results);
+
+  function match(r) {
+    if (F.montura.length && !(r.l.montura && F.montura.includes(r.l.montura.tip))) return false;
+    if (F.balti.length && !F.balti.includes(r.p.baltaId)) return false;
+    const d = parseFloat(r.l.distanta);
+    if (F.distMin !== "" && !(d >= parseFloat(F.distMin))) return false;
+    if (F.distMax !== "" && !(d <= parseFloat(F.distMax))) return false;
+    if (F.carlig !== "" && String((r.l.carlig && r.l.carlig.marime) || "") !== String(F.carlig)) return false;
+    if (F.doarCapturi && !r.capturi.length) return false;
+    if (F.specii.length && !r.capturi.some(t => F.specii.includes(t.captura && t.captura.specie))) return false;
+    return true;
+  }
+
+  function run() {
+    const hits = recs.filter(match);
+    let cap = 0, kg = 0, rec = 0;
+    hits.forEach(r => r.capturi.forEach(t => { cap++; const g = parseFloat(t.captura && t.captura.greutate) || 0; kg += g; if (g > rec) rec = g; }));
+    summary.innerHTML = "";
+    summary.appendChild(el("div", { class: "statband" },
+      statBandCell(hits.length, "Lansete"),
+      statBandCell(cap, "Capturi"),
+      statBandCell(kg.toFixed(1), "Kg", true),
+      statBandCell(rec ? rec.toFixed(1) : "—", "Record kg", true)));
+    results.innerHTML = "";
+    if (!hits.length) { results.appendChild(el("div", { class: "hint" }, "Nicio lansetă nu se potrivește filtrelor.")); return; }
+    results.appendChild(el("div", { class: "section" }, hits.length + (hits.length === 1 ? " rezultat" : " rezultate")));
+    hits.forEach(r => results.appendChild(filterResultCard(r)));
+  }
+  run();
+}
+
+function filterResultCard(r) {
+  const capKg = r.capturi.reduce((s, t) => s + (parseFloat(t.captura && t.captura.greutate) || 0), 0);
+  return el("div", { class: "card partida", onclick: () => { curDay = r.zi; go("/p/" + r.p.id); } },
+    el("div", { class: "body" },
+      el("div", { class: "name" }, (r.p.baltaName || "Baltă") + " · Lanseta " + r.l.nr),
+      el("div", { class: "sub" }, fmtDate(r.z.data)
+        + (r.l.distanta ? " · " + r.l.distanta + " m" : "")
+        + (r.l.carlig && r.l.carlig.marime ? " · cârlig nr " + r.l.carlig.marime : "")),
+      el("div", { class: "sub mono-mont" }, r.l.montura ? monturaSummaryNode(r.l.montura) : "— fără montură —"),
+      el("div", { class: "badges" },
+        statCell(r.capturi.length, "Capturi", true),
+        statCell(capKg ? capKg.toFixed(1) : "—", "Kg", true))),
+    el("span", { class: "card-chev" }, "›"));
 }
 
 /* ============================================================
@@ -393,7 +554,7 @@ function viewPartida(id) {
 
   app.appendChild(topbar(p.baltaName || b?.name || "Partidă", () => go("/"),
     el("button", { class: "icon-btn", title: "Șterge partida", onclick: () => {
-      if (confirm("Ștergi definitiv această partidă?")) { Store.removePartida(id); go("/"); }
+      confirmDialog("Ștergi definitiv această partidă?", () => { Store.removePartida(id); go("/"); }, { yesLabel: "Șterge", danger: true });
     } }, "🗑")));
 
   const page = el("div", { class: "page" });
@@ -462,11 +623,12 @@ function viewPartida(id) {
         p.finished = false; delete p.finishedAt; Store.savePartida(p); render(); toast("Partidă reluată");
       } }, "▶ Reia partida")
     : el("button", { class: "btn stopbtn mt", onclick: () => {
-        if (!confirm("Oprești partida? O marchezi ca încheiată.")) return;
-        p.finished = true; p.finishedAt = new Date().toISOString();
-        const last = p.zile && p.zile.length ? p.zile[p.zile.length - 1].data : today();
-        if (!p.dataEnd || p.dataEnd < last) p.dataEnd = last;
-        Store.savePartida(p); toast("Partidă oprită"); go("/");
+        confirmDialog("Oprești partida? O marchezi ca încheiată.", () => {
+          p.finished = true; p.finishedAt = new Date().toISOString();
+          const last = p.zile && p.zile.length ? p.zile[p.zile.length - 1].data : today();
+          if (!p.dataEnd || p.dataEnd < last) p.dataEnd = last;
+          Store.savePartida(p); toast("Partidă oprită"); go("/");
+        }, { yesLabel: "Oprește", danger: true });
       } }, "⏹ Oprește partida"));
 }
 
@@ -650,7 +812,7 @@ function editTrasatura(p, l, t) {
   data.captura = data.captura || {};
   let photoBlob = undefined; // undefined = neschimbat, null = șters
 
-  sheet(isNew ? "Trăsătură nouă" : "Trăsătură", (body) => {
+  const sh = sheet(isNew ? "Trăsătură nouă" : "Trăsătură", (body) => {
     body.appendChild(field("Minute de la schimbarea lansetei",
       el("input", { class: "inp", type: "number", inputmode: "numeric", value: data.minute,
         placeholder: "ex. 45", oninput: e => data.minute = e.target.value })));
@@ -676,12 +838,14 @@ function editTrasatura(p, l, t) {
     function photoField() {
       const wrap = el("div", { class: "field" }, el("span", { class: "flabel" }, "Poză"));
       const prev = el("div", { class: "photo-prev" });
-      const inp = el("input", { type: "file", accept: "image/*", capture: "environment", style: "display:none",
-        onchange: async e => {
-          const f = e.target.files[0]; if (!f) return;
-          photoBlob = await compress(f);
-          showPrev(URL.createObjectURL(photoBlob));
-        } });
+      const onFile = async e => {
+        const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+        photoBlob = await compress(f);
+        showPrev(URL.createObjectURL(photoBlob));
+      };
+      // cameră (capture) vs galerie (fără capture → alegi din telefon)
+      const inpCam = el("input", { type: "file", accept: "image/*", capture: "environment", style: "display:none", onchange: onFile });
+      const inpGal = el("input", { type: "file", accept: "image/*", style: "display:none", onchange: onFile });
       function showPrev(url) {
         prev.innerHTML = "";
         if (url) {
@@ -689,10 +853,12 @@ function editTrasatura(p, l, t) {
           prev.appendChild(el("button", { class: "btn ghost small", type: "button",
             onclick: () => { photoBlob = null; showPrev(null); } }, "Șterge poza"));
         } else {
-          prev.appendChild(el("button", { class: "btn ghost", type: "button", onclick: () => inp.click() }, "📷 Adaugă poză"));
+          prev.appendChild(el("div", { class: "row2" },
+            el("button", { class: "btn ghost", type: "button", onclick: () => inpCam.click() }, "📷 Fă poză"),
+            el("button", { class: "btn ghost", type: "button", onclick: () => inpGal.click() }, "🖼 Din galerie")));
         }
       }
-      wrap.appendChild(prev); wrap.appendChild(inp);
+      wrap.appendChild(prev); wrap.appendChild(inpCam); wrap.appendChild(inpGal);
       // poză existentă
       if (data.captura.poza) Store.getPhoto(data.captura.poza).then(b => { if (b && photoBlob === undefined) showPrev(URL.createObjectURL(b)); });
       else showPrev(null);
@@ -719,9 +885,11 @@ function editTrasatura(p, l, t) {
   if (!isNew) {
     const sb = $(".sheet-foot");
     if (sb) sb.insertBefore(el("button", { class: "btn danger", onclick: () => {
-      l.trasaturi = l.trasaturi.filter(x => x.id !== data.id);
-      if (data.captura?.poza) Store.delPhoto(data.captura.poza);
-      Store.savePartida(p); $(".sheet-back")?.remove(); render();
+      confirmDialog("Ștergi această trăsătură?", () => {
+        l.trasaturi = l.trasaturi.filter(x => x.id !== data.id);
+        if (data.captura && data.captura.poza) Store.delPhoto(data.captura.poza);
+        Store.savePartida(p); sh.close(); render();
+      }, { yesLabel: "Șterge", danger: true });
     } }, "Șterge"), sb.firstChild);
   }
 }
@@ -774,7 +942,7 @@ function viewSettings() {
       } }, "Salvează profilul"),
       Cloud.isAdmin() ? el("button", { class: "btn ghost", onclick: () => go("/admin") }, "👑 Panou admin") : null,
       el("button", { class: "btn ghost", onclick: () => {
-        if (confirm("Te deconectezi? Datele nesincronizate rămân pe acest telefon.")) Cloud.signOut().then(render);
+        confirmDialog("Te deconectezi? Datele nesincronizate rămân pe acest telefon.", () => Cloud.signOut().then(render), { yesLabel: "Deconectare", danger: true });
       } }, "Deconectare")));
 
     const syncBtn = el("button", { class: "btn ghost", onclick: () => {
@@ -811,9 +979,7 @@ function viewSettings() {
     el("h3", {}, "Despre"),
     el("p", { class: "hint" }, "FRA · jurnal de pescuit. Bălți preluate din Holerga. Se instalează pe ecranul telefonului din meniul browserului: Adaugă la ecranul principal."),
     el("button", { class: "btn danger", onclick: () => {
-      if (confirm("Ștergi TOATE partidele? (ireversibil)")) {
-        localStorage.removeItem("fra_v1"); location.reload();
-      }
+      confirmDialog("Ștergi TOATE partidele? (ireversibil)", () => { localStorage.removeItem("fra_v1"); location.reload(); }, { yesLabel: "Șterge tot", danger: true });
     } }, "Șterge toate datele")));
 }
 function exportData() {
@@ -932,9 +1098,9 @@ function openBaltaInfo(b, mine) {
     body.appendChild(el("div", { class: "hint" }, b.location || "—"));
     if ((b.species || []).length) body.appendChild(el("div", { class: "chips" }, ...b.species.map(s => el("span", { class: "chip" }, s))));
     body.appendChild(el("div", { class: "hint" }, (b.standCount || 0) + " standuri"));
-    body.appendChild(el("button", { class: "btn primary", onclick: () => { go("/nou"); close(); } }, "Începe o partidă aici"));
+    body.appendChild(el("button", { class: "btn primary", onclick: () => { close(); go("/nou"); } }, "Începe o partidă aici"));
     if (mine) body.appendChild(el("button", { class: "btn danger", onclick: () => {
-      if (confirm("Ștergi balta „" + b.name + "\"? (partidele deja notate rămân)")) { Store.removeCustomBalta(b.id); close(); render(); }
+      confirmDialog("Ștergi balta „" + b.name + "”? (partidele deja notate rămân)", () => { Store.removeCustomBalta(b.id); close(); render(); }, { yesLabel: "Șterge", danger: true });
     } }, "Șterge balta"));
   });
 }
@@ -1035,8 +1201,8 @@ function viewAdmin() {
           el("div", { class: "hint" }, (u.role === "admin" ? "👑 admin" : "utilizator"))),
         el("button", { class: "btn small ghost", onclick: () => {
           const nr = u.role === "admin" ? "user" : "admin";
-          if (confirm("Schimbi rolul lui " + (u.display_name || "acest user") + " în „" + nr + "\"?"))
-            Cloud.setUserRole(u.id, nr).then(render).catch(e => alert(e.message));
+          confirmDialog("Schimbi rolul lui " + (u.display_name || "acest user") + " în „" + nr + "”?",
+            () => Cloud.setUserRole(u.id, nr).then(render).catch(e => alert(e.message)), { yesLabel: "Schimbă" });
         } }, u.role === "admin" ? "Fă utilizator" : "Fă admin")));
     });
   }).catch(e => { list.innerHTML = ""; list.appendChild(el("div", { class: "hint" }, "Eroare: " + e.message)); });
@@ -1071,6 +1237,7 @@ function homeTopbar() {
       el("div", { class: "wm" },
         el("div", { class: "t", html: "F<b>R</b>A" }),
         el("div", { class: "s" }, "Jurnal de partide de pescuit la crap"))),
+    el("button", { class: "icon-btn", onclick: () => go("/filtru"), title: "Filtrează / caută" }, "🔎"),
     el("button", { class: "icon-btn", onclick: () => go("/setari"), title: "Setări" }, "⚙"));
 }
 function fab(label, onclick) {

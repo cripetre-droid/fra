@@ -252,6 +252,21 @@ textarea.inp { resize: vertical; font-family: var(--font); }
 .btn.stopbtn { width: 100%; color: #f0b6a2; border-color: rgba(214,110,80,.42); background: rgba(200,80,50,.09); }
 .btn.stopbtn:hover { background: rgba(200,80,50,.16); }
 
+/* dialog de confirmare propriu (centrat) */
+.confirm-back { align-items: center; z-index: 60; }
+.confirm-box { background: var(--carbon-2); border: 1px solid var(--line-lit); border-radius: 18px; padding: 20px; width: calc(100% - 48px); max-width: 340px; box-shadow: 0 24px 60px -14px rgba(0,0,0,.75); transform: scale(.94); transition: transform .18s; }
+.confirm-back.show .confirm-box { transform: none; }
+.confirm-msg { font-size: 15px; line-height: 1.5; color: var(--ink); margin-bottom: 18px; }
+.confirm-actions { display: flex; gap: 10px; }
+.confirm-actions .btn { flex: 1; }
+
+/* filtru / căutare */
+.filter-controls { background: rgba(255,255,255,.02); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 11px; }
+.filter-controls .flabel { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin-bottom: -3px; }
+.switch-row { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-2); cursor: pointer; padding-top: 2px; }
+.switch-row input { width: 18px; height: 18px; accent-color: var(--brass); }
+.card.partida .sub.mono-mont { display: flex; align-items: center; gap: 2px; margin-top: 4px; color: var(--ink-2); }
+
 /* culori — cerc mare cu etichetă dedesubt */
 .chips.colors { gap: 12px; }
 .chip.color {
