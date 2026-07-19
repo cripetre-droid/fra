@@ -97,7 +97,7 @@ const Cloud = (() => {
       id: p.id, user_id: uid, balta_id: p.baltaId || null, balta_name: p.baltaName || null,
       stand_no: p.standNo == null ? null : p.standNo,
       data_start: p.dataStart || null, data_end: p.dataEnd || null, note: p.note || null,
-      payload: { zile: p.zile || [] },
+      payload: { zile: p.zile || [], finished: !!p.finished, finishedAt: p.finishedAt || null },
       capturi: s.capturi, total_kg: s.total, record_kg: s.record,
       deleted: false, updated_at: p.updatedAt || new Date().toISOString(),
     };
@@ -107,6 +107,7 @@ const Cloud = (() => {
       id: r.id, baltaId: r.balta_id, baltaName: r.balta_name, standNo: r.stand_no,
       dataStart: r.data_start, dataEnd: r.data_end, note: r.note || "",
       zile: (r.payload && r.payload.zile) || [],
+      finished: !!(r.payload && r.payload.finished), finishedAt: (r.payload && r.payload.finishedAt) || null,
       updatedAt: r.updated_at, createdAt: r.created_at,
     };
   }

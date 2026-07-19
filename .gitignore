@@ -15,3 +15,13 @@ icons/_*.png
 pass*.txt
 *secret*
 *.key
+
+# surse monturi (doar pt generarea thumbnail-urilor din icons/montura/*.png)
+icons/bag.webp
+icons/half.jpeg
+icons/boilies.webp
+icons/plastice.jpg
+icons/montura-snowmen-echilibrata-feat.jpg
+icons/wafter.jpg
+icons/pop up.jpg
+icons/montura/_*

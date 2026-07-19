@@ -256,7 +256,8 @@ function partidaCard(p, recordTid) {
       b && b.map ? el("img", { src: b.map, alt: "" }) : null,
       el("span", { class: "pin" }, String(p.standNo == null ? "—" : p.standNo))),
     el("div", { class: "body" },
-      el("div", { class: "name" }, p.baltaName || (b && b.name) || "Baltă"),
+      el("div", { class: "name" }, p.baltaName || (b && b.name) || "Baltă",
+        p.finished ? el("span", { class: "fin-tag" }, "încheiată") : null),
       el("div", { class: "sub" }, "Stand ", el("b", {}, String(p.standNo == null ? "—" : p.standNo)),
         " · " + fmtDate(p.dataStart) + (p.dataEnd && p.dataEnd !== p.dataStart ? " – " + fmtDate(p.dataEnd) : "")),
       el("div", { class: "badges" },
@@ -271,6 +272,7 @@ function partidaCard(p, recordTid) {
    ============================================================ */
 function viewNew() {
   const draft = { baltaId: null, standNo: null, dataStart: today(), dataEnd: "" };
+  let scrollStand = false; // true imediat după ce alegi balta -> coboară la standuri
   app.appendChild(topbar("Partidă nouă", () => go("/")));
   const page = el("div", { class: "page" });
   app.appendChild(page);
@@ -282,7 +284,7 @@ function viewNew() {
     const bl = el("div", { class: "balti-grid" });
     allBalti().forEach(b => {
       bl.appendChild(el("button", { class: "balta-opt" + (draft.baltaId === b.id ? " on" : ""), type: "button",
-        onclick: () => { draft.baltaId = b.id; draft.standNo = null; step(); } },
+        onclick: () => { draft.baltaId = b.id; draft.standNo = null; scrollStand = true; step(); } },
         el("span", { class: "cnt" }, String(b.standCount)),
         el("div", { class: "balta-thumb" }, b.map ? el("img", { src: b.map, alt: "" }) : el("span", { class: "fishico" }, "🎣")),
         el("div", { class: "balta-name" }, b.name),
@@ -290,7 +292,7 @@ function viewNew() {
     });
     // dală de adăugare baltă nouă
     bl.appendChild(el("button", { class: "balta-opt add-balta", type: "button",
-      onclick: () => addBaltaFlow(nb => { draft.baltaId = nb.id; draft.standNo = null; step(); }) },
+      onclick: () => addBaltaFlow(nb => { draft.baltaId = nb.id; draft.standNo = null; scrollStand = true; step(); }) },
       el("div", { class: "add-balta-plus" }, "＋"),
       el("div", { class: "balta-name" }, "Adaugă baltă"),
       el("div", { class: "balta-loc" }, "care nu e în listă")));
@@ -300,8 +302,10 @@ function viewNew() {
     const b = balta(draft.baltaId);
 
     // 2. stand
-    page.appendChild(sectionH("02", "Standul" + (draft.standNo ? " · ales " + draft.standNo : "")));
-    page.appendChild(standPicker(b, draft.standNo, no => { draft.standNo = no; step(); }));
+    const standHead = sectionH("02", "Standul" + (draft.standNo ? " · ales " + draft.standNo : ""));
+    page.appendChild(standHead);
+    page.appendChild(standPicker(b, draft.standNo, no => { draft.standNo = no; scrollStand = false; step(); }));
+    if (scrollStand) { scrollStand = false; requestAnimationFrame(() => standHead.scrollIntoView({ behavior: "smooth", block: "start" })); }
 
     if (!draft.standNo) return;
 
@@ -398,7 +402,8 @@ function viewPartida(id) {
   // hero cu statistici
   const s = partidaStats(p);
   page.appendChild(el("div", { class: "p-hero" },
-    el("div", { class: "nm" }, p.baltaName || (b && b.name) || "Partidă"),
+    el("div", { class: "nm" }, p.baltaName || (b && b.name) || "Partidă",
+      p.finished ? el("span", { class: "fin-badge" }, "ÎNCHEIATĂ") : null),
     el("div", { class: "row" },
       el("span", {}, "Stand ", el("b", {}, String(p.standNo == null ? "—" : p.standNo))),
       el("span", {}, fmtDate(p.dataStart) + (p.dataEnd && p.dataEnd !== p.dataStart ? " – " + fmtDate(p.dataEnd) : "")),
@@ -450,6 +455,19 @@ function viewPartida(id) {
   page.appendChild(field("Observații partidă",
     el("textarea", { class: "inp", rows: 2, placeholder: "vânt, presiune, nadă, etc.",
       onchange: e => { p.note = e.target.value; Store.savePartida(p); } }, p.note || "")));
+
+  // stop / reia partida
+  page.appendChild(p.finished
+    ? el("button", { class: "btn ghost mt", onclick: () => {
+        p.finished = false; delete p.finishedAt; Store.savePartida(p); render(); toast("Partidă reluată");
+      } }, "▶ Reia partida")
+    : el("button", { class: "btn stopbtn mt", onclick: () => {
+        if (!confirm("Oprești partida? O marchezi ca încheiată.")) return;
+        p.finished = true; p.finishedAt = new Date().toISOString();
+        const last = p.zile && p.zile.length ? p.zile[p.zile.length - 1].data : today();
+        if (!p.dataEnd || p.dataEnd < last) p.dataEnd = last;
+        Store.savePartida(p); toast("Partidă oprită"); go("/");
+      } }, "⏹ Oprește partida"));
 }
 
 function newLanseta(nr) {
@@ -554,43 +572,49 @@ function editMontura(p, l) {
   const m = structuredClone(l.montura) || { tip: "boilies" };
   sheet("Montură — Lanseta " + l.nr, (body) => {
     const form = el("div");
-    body.appendChild(chips(MONTURA_TIPURI, m.tip, tip => { m.tip = tip; draw(); }, o => o.id, o => o.emoji + " " + o.label));
+    body.appendChild(chips(MONTURA_TIPURI, m.tip, tip => { m.tip = tip; draw(); }, o => o.id,
+      o => el("span", { class: "m-chip" }, el("img", { class: "m-ic", src: o.icon, alt: "", loading: "lazy" }), el("span", {}, o.label))));
     body.appendChild(form);
-    function diamField(list, key) {
-      return field("Diametru (mm)", chips(list, m[key], v => m[key] = v));
+    // selector de diametru cu opțiunea „Altul" (+ input liber) — pt orice montură
+    function diamPicker(obj, key) {
+      const dwrap = el("div");
+      const known = DIAMETRE.includes(obj[key]) || !obj[key];
+      const alt = el("input", { class: "inp mt", type: "text", inputmode: "decimal",
+        placeholder: "alt diametru (mm)", value: known ? "" : (obj[key] || ""),
+        oninput: e => obj[key] = e.target.value });
+      function showAlt(s) { alt.style.display = s ? "" : "none"; }
+      dwrap.appendChild(chips(DIAMETRE_ALT, known ? obj[key] : "Altul",
+        v => { if (v === "Altul") { obj[key] = ""; showAlt(true); alt.focus(); } else { obj[key] = v; showAlt(false); } }));
+      dwrap.appendChild(alt);
+      showAlt(!known && !!obj[key]);
+      return dwrap;
     }
+    const diamField = (obj, key) => field("Diametru (mm)", diamPicker(obj, key));
     function draw() {
       form.innerHTML = "";
       if (m.tip === "bag") {
         form.appendChild(field("La cârlig", chips(BAG_HOOKBAIT, m.hookbait, v => m.hookbait = v)));
-        form.appendChild(diamField(DIAMETRE, "diametru"));
+        form.appendChild(diamField(m, "diametru"));
         form.appendChild(field("Culoare", colorChips(m.culoare, v => m.culoare = v)));
         form.appendChild(field("Producător", autoInput(m.producator, Store.producatori(), "ex. Nash", v => m.producator = v)));
       } else if (m.tip === "half") {
-        form.appendChild(diamField(DIAMETRE, "diametru"));
+        form.appendChild(diamField(m, "diametru"));
         form.appendChild(field("Culoare", colorChips(m.culoare, v => m.culoare = v)));
         form.appendChild(field("Producător", autoInput(m.producator, Store.producatori(), "ex. Mainline", v => m.producator = v)));
-      } else if (m.tip === "boilies") {
-        form.appendChild(diamField(DIAMETRE, "diametru"));
-        form.appendChild(field("Producător", autoInput(m.producator, Store.producatori(), "ex. CC Moore", v => m.producator = v)));
+      } else if (m.tip === "boilies" || m.tip === "wafter" || m.tip === "popup") {
+        const ph = m.tip === "wafter" ? "ex. Mainline" : m.tip === "popup" ? "ex. Sticky Baits" : "ex. CC Moore";
+        form.appendChild(diamField(m, "diametru"));
+        form.appendChild(field("Producător", autoInput(m.producator, Store.producatori(), ph, v => m.producator = v)));
         form.appendChild(field("Culoare", colorChips(m.culoare, v => m.culoare = v)));
       } else if (m.tip === "plastice") {
-        const dwrap = el("div");
-        dwrap.appendChild(chips(DIAMETRE_PLASTIC, DIAMETRE.includes(m.diametru) || !m.diametru ? m.diametru : "Altul",
-          v => { if (v === "Altul") { m.diametru = ""; showAlt(true); } else { m.diametru = v; showAlt(false); } }));
-        const alt = el("input", { class: "inp mt", type: "text", placeholder: "alt diametru (mm)", value: DIAMETRE.includes(m.diametru) ? "" : (m.diametru || ""),
-          oninput: e => m.diametru = e.target.value });
-        dwrap.appendChild(alt);
-        function showAlt(s) { alt.style.display = s ? "" : "none"; }
-        showAlt(!DIAMETRE.includes(m.diametru) && !!m.diametru);
-        form.appendChild(field("Diametru (mm)", dwrap));
+        form.appendChild(diamField(m, "diametru"));
         form.appendChild(field("Producător", autoInput(m.producator, Store.producatori(), "ex. Enterprise", v => m.producator = v)));
         form.appendChild(field("Culoare", colorChips(m.culoare, v => m.culoare = v)));
       } else if (m.tip === "snowman") {
         m.popup = m.popup || {}; m.boilies = m.boilies || {};
         const sub = (title, obj) => el("div", { class: "subcard" },
           el("h4", {}, title),
-          field("Diametru", chips(DIAMETRE, obj.diametru, v => obj.diametru = v)),
+          field("Diametru", diamPicker(obj, "diametru")),
           field("Culoare", colorChips(obj.culoare, v => obj.culoare = v)),
           field("Producător", autoInput(obj.producator, Store.producatori(), "producător", v => obj.producator = v)));
         form.appendChild(sub("Pop-up (sus)", m.popup));
@@ -1067,13 +1091,15 @@ function colorHex(id) {
   if (typeof id === "string" && /^#/.test(id)) return id;
   return null;
 }
-// rezumat montură ca nod DOM (cu bulină de culoare)
+// rezumat montură ca nod DOM (cu logo montură + bulină de culoare)
 function monturaSummaryNode(m) {
   if (!m) return "";
   const txt = monturaSummary(m);
   const colorId = m.tip === "snowman" ? ((m.popup && m.popup.culoare) || (m.boilies && m.boilies.culoare)) : m.culoare;
   const hex = colorHex(colorId);
+  const T = MONTURA_TIPURI.find(t => t.id === m.tip);
   const frag = document.createDocumentFragment();
+  if (T && T.icon) frag.appendChild(el("img", { class: "m-ic sm", src: T.icon, alt: "", loading: "lazy" }));
   if (hex) frag.appendChild(el("span", { class: "dotc", style: "background:" + hex }));
   frag.appendChild(document.createTextNode(txt));
   return frag;

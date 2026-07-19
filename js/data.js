@@ -28,15 +28,16 @@ const BALTI = [
     location: "Vadu Roșu, Rotbav/Măieruș, jud. Brașov",
     species: ["Crap", "Novac", "Amur", "Caras"],
     standCount: 24,
-    map: "assets/maps/doripesco.jpg", imgW: 560, imgH: 950, hotspotR: 18,
+    map: "assets/maps/doripesco.jpg", imgW: 1280, imgH: 1000, hotspotR: 16,
     stands: [
-      { no: 1, x: 230, y: 870 }, { no: 2, x: 280, y: 840 }, { no: 3, x: 328, y: 812 }, { no: 4, x: 375, y: 782 },
-      { no: 5, x: 420, y: 758 }, { no: 6, x: 455, y: 738 }, { no: 7, x: 482, y: 718 },
-      { no: 8, x: 525, y: 645 }, { no: 9, x: 555, y: 480 }, { no: 10, x: 478, y: 348 }, { no: 11, x: 430, y: 280 },
-      { no: 12, x: 405, y: 165 },
-      { no: 13, x: 360, y: 70 }, { no: 14, x: 260, y: 55 }, { no: 15, x: 160, y: 58 }, { no: 16, x: 85, y: 75 },
-      { no: 17, x: 78, y: 130 }, { no: 18, x: 132, y: 218 }, { no: 19, x: 192, y: 298 }, { no: 20, x: 230, y: 385 },
-      { no: 21, x: 248, y: 472 }, { no: 22, x: 174, y: 567 }, { no: 23, x: 164, y: 727 }, { no: 24, x: 184, y: 816 },
+      // Coordonate în pixelii pozei satelit 1280×1000 (sincron cu Holerga).
+      { no: 1, x: 438, y: 791 }, { no: 2, x: 522, y: 756 }, { no: 3, x: 608, y: 720 }, { no: 4, x: 695, y: 684 },
+      { no: 5, x: 785, y: 647 }, { no: 6, x: 865, y: 614 }, { no: 7, x: 935, y: 585 }, { no: 8, x: 985, y: 564 },
+      { no: 9, x: 1057, y: 491 }, { no: 10, x: 1090, y: 436 }, { no: 11, x: 1121, y: 353 }, { no: 12, x: 1103, y: 258 },
+      { no: 13, x: 1053, y: 195 }, { no: 14, x: 998, y: 144 }, { no: 15, x: 936, y: 99 },
+      { no: 16, x: 575, y: 225 }, { no: 17, x: 554, y: 253 }, { no: 18, x: 543, y: 287 }, { no: 19, x: 527, y: 319 },
+      { no: 20, x: 509, y: 350 }, { no: 21, x: 480, y: 371 }, { no: 22, x: 450, y: 391 }, { no: 23, x: 417, y: 405 },
+      { no: 24, x: 384, y: 419 },
     ],
   },
   {
@@ -89,18 +90,21 @@ const BALTI = [
 
 /* ---- liste de opțiuni pentru monturi ---- */
 const MONTURA_TIPURI = [
-  { id: "bag",      label: "Bag",     emoji: "🎒" },
-  { id: "half",     label: "Half",    emoji: "◑"  },
-  { id: "boilies",  label: "Boilies", emoji: "🔴" },
-  { id: "plastice", label: "Plastice",emoji: "🫧" },
-  { id: "snowman",  label: "Snowman", emoji: "⛄" },
+  { id: "bag",      label: "Bag",     emoji: "🎒", icon: "icons/montura/bag.png" },
+  { id: "half",     label: "Half",    emoji: "◑",  icon: "icons/montura/half.png" },
+  { id: "boilies",  label: "Boilies", emoji: "🔴", icon: "icons/montura/boilies.png" },
+  { id: "plastice", label: "Plastice",emoji: "🫧", icon: "icons/montura/plastice.png" },
+  { id: "snowman",  label: "Snowman", emoji: "⛄", icon: "icons/montura/snowman.png" },
+  { id: "wafter",   label: "Wafter",  emoji: "⚖",  icon: "icons/montura/wafter.png" },
+  { id: "popup",    label: "Pop-up",  emoji: "🎈", icon: "icons/montura/popup.png" },
 ];
 
 // ce se pune la cârlig într-un bag
 const BAG_HOOKBAIT = ["Plastic", "Pop-up", "Dumbel half", "Boilies"];
 
-const DIAMETRE = ["16", "20", "24"];              // mm — bag, half, boilies, snowman
-const DIAMETRE_PLASTIC = ["16", "20", "24", "Altul"]; // plasticele pot avea alt diametru
+const DIAMETRE = ["16", "20", "24"];                  // mm — diametre uzuale
+const DIAMETRE_ALT = ["16", "20", "24", "Altul"];     // cu opțiunea „Altul" (orice montură)
+const DIAMETRE_PLASTIC = DIAMETRE_ALT;                // compat: plasticele foloseau deja „Altul"
 
 const CULORI = [
   { id: "galben",     label: "Galben",     hex: "#f2c200" },
