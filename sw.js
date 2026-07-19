@@ -1,5 +1,5 @@
 /* FRA — service worker (offline-first, cache-first pentru shell) */
-const CACHE = "fra-v6";
+const CACHE = "fra-v7";
 const ASSETS = [
   "./", "./index.html", "./manifest.webmanifest",
   "./css/styles.css",

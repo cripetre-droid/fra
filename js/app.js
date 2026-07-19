@@ -573,7 +573,7 @@ function editMontura(p, l) {
   sheet("Montură — Lanseta " + l.nr, (body) => {
     const form = el("div");
     body.appendChild(chips(MONTURA_TIPURI, m.tip, tip => { m.tip = tip; draw(); }, o => o.id,
-      o => el("span", { class: "m-chip" }, el("img", { class: "m-ic", src: o.icon, alt: "", loading: "lazy" }), el("span", {}, o.label))));
+      o => el("span", { class: "m-chip" }, el("img", { class: "m-ic", src: o.icon, alt: "",}), el("span", {}, o.label))));
     body.appendChild(form);
     // selector de diametru cu opțiunea „Altul" (+ input liber) — pt orice montură
     function diamPicker(obj, key) {
@@ -1099,7 +1099,7 @@ function monturaSummaryNode(m) {
   const hex = colorHex(colorId);
   const T = MONTURA_TIPURI.find(t => t.id === m.tip);
   const frag = document.createDocumentFragment();
-  if (T && T.icon) frag.appendChild(el("img", { class: "m-ic sm", src: T.icon, alt: "", loading: "lazy" }));
+  if (T && T.icon) frag.appendChild(el("img", { class: "m-ic sm", src: T.icon, alt: "",}));
   if (hex) frag.appendChild(el("span", { class: "dotc", style: "background:" + hex }));
   frag.appendChild(document.createTextNode(txt));
   return frag;
