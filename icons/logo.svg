@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="FRA — crap">
+  <defs>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a2229"/>
+      <stop offset="1" stop-color="#0a0d10"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#e6c56f"/>
+      <stop offset="0.5" stop-color="#c8a24a"/>
+      <stop offset="1"   stop-color="#9c7b30"/>
+    </linearGradient>
+    <linearGradient id="fin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dcb75c"/>
+      <stop offset="1" stop-color="#8a6a28"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#water)"/>
+  <g fill="none" stroke="#c8a24a" stroke-width="6" opacity="0.35" stroke-linecap="round">
+    <path d="M60 120 q30 -22 60 0 t60 0 t60 0"/>
+    <path d="M300 96 q30 -22 60 0 t60 0"/>
+  </g>
+  <g transform="translate(256 268) scale(1.02)">
+    <path d="M150 0 C 205 -70, 232 -78, 236 -70 C 214 -44, 214 44, 236 70 C 232 78, 205 70, 150 0 Z" fill="url(#fin)" stroke="#5f4a12" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M-30 -66 C 10 -142, 92 -150, 132 -80 C 90 -96, 20 -92, -30 -66 Z" fill="url(#fin)" stroke="#5f4a12" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M-46 44 C -30 108, 42 120, 66 78 C 24 86, -18 74, -46 44 Z" fill="url(#fin)" stroke="#5f4a12" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M-176 4 C -150 -70, -40 -104, 70 -80 C 128 -68, 160 -30, 168 0 C 160 30, 128 68, 70 80 C -40 104, -150 70, -176 -4 C -184 -1, -184 1, -176 4 Z" fill="url(#body)" stroke="#5f4a12" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M-150 -6 C -70 -30, 40 -28, 150 -4" fill="none" stroke="#7a5c17" stroke-width="4" opacity="0.6"/>
+    <g fill="none" stroke="#8a6a1f" stroke-width="3.5" opacity="0.55" stroke-linecap="round">
+      <path d="M-96 -44 q18 44 -6 84"/>
+      <path d="M-50 -54 q18 52 -6 96"/>
+      <path d="M-4 -56 q18 54 -6 100"/>
+      <path d="M42 -50 q16 48 -6 88"/>
+    </g>
+    <path d="M-150 -50 C -168 -12, -168 12, -150 50" fill="none" stroke="#7a5c17" stroke-width="5"/>
+    <path d="M-176 8 C -196 20, -206 30, -212 46" fill="none" stroke="#5f4a12" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="-140" cy="-18" r="15" fill="#20140a"/>
+    <circle cx="-135" cy="-23" r="5" fill="#fff" opacity="0.85"/>
+  </g>
+</svg>
