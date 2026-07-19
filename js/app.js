@@ -180,7 +180,7 @@ function syncSoon(delay) {
   if (!Cloud.enabled() || !Cloud.user()) return;
   clearTimeout(_syncT);
   _syncT = setTimeout(() => {
-    Cloud.syncNow().then(r => { if (r && r.ok && (r.pushed || r.pulled)) render(); }).catch(() => {});
+    Cloud.syncNow().then(r => { if (r && r.ok && (r.pushed || r.pulled)) render(); }).catch(e => { console.error("[FRA sync auto]", e); });
   }, delay || 800);
 }
 
@@ -755,7 +755,10 @@ function viewSettings() {
 
     const syncBtn = el("button", { class: "btn ghost", onclick: () => {
       syncBtn.textContent = "Se sincronizează…";
-      Cloud.syncNow().then(r => { toast(r.ok ? "Sincronizat" : "Sync: " + r.reason); render(); }).catch(e => { toast("Eroare sync"); });
+      Cloud.syncNow()
+        .then(r => { toast(r.ok ? "Sincronizat ✓" : "Sync: " + r.reason); render(); })
+        .catch(e => { console.error("[FRA sync]", e); toast("Sync eșuat: " + (e && (e.message || e.error_description || e.hint) || JSON.stringify(e))); })
+        .finally(() => { syncBtn.textContent = "🔄 Sincronizează acum"; });
     } }, "🔄 Sincronizează acum");
     page.appendChild(el("div", { class: "card pad" },
       el("h3", {}, "Sincronizare"),
