@@ -179,6 +179,9 @@ h1,h2,h3,h4 { margin: 0; }
 }
 .balta-opt.on .balta-name { color: var(--brass-2); }
 .balta-opt.on .cnt { border-color: var(--brass); color: var(--brass-2); }
+.balta-opt.add-balta { border-style: dashed; border-color: var(--line-lit); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 118px; background: rgba(200,162,74,.03); }
+.balta-opt.add-balta .add-balta-plus { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 24px; color: #231803; background: linear-gradient(180deg, var(--brass-2), var(--brass-deep)); margin-bottom: 8px; box-shadow: 0 8px 18px -8px rgba(200,162,74,.5); }
+.balta-opt.add-balta .balta-name { color: var(--brass-2); }
 
 /* ---------- stand picker ---------- */
 .standpick { display: flex; flex-direction: column; gap: 10px; }

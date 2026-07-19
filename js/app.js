@@ -288,6 +288,12 @@ function viewNew() {
         el("div", { class: "balta-name" }, b.name),
         el("div", { class: "balta-loc" }, b.location)));
     });
+    // dală de adăugare baltă nouă
+    bl.appendChild(el("button", { class: "balta-opt add-balta", type: "button",
+      onclick: () => addBaltaFlow(nb => { draft.baltaId = nb.id; draft.standNo = null; step(); }) },
+      el("div", { class: "add-balta-plus" }, "＋"),
+      el("div", { class: "balta-name" }, "Adaugă baltă"),
+      el("div", { class: "balta-loc" }, "care nu e în listă")));
     page.appendChild(bl);
 
     if (!draft.baltaId) return;
@@ -902,8 +908,8 @@ function openBaltaInfo(b, mine) {
   });
 }
 
-/* adaugă baltă proprie */
-function addBaltaFlow() {
+/* adaugă baltă proprie; onAdded(b) e chemat după salvare (altfel doar re-randează) */
+function addBaltaFlow(onAdded) {
   const draft = { name: "", location: "", standCount: "", species: "" };
   sheet("Baltă nouă", (body) => {
     body.appendChild(field("Nume baltă *", el("input", { class: "inp", type: "text", placeholder: "ex. Balta X",
@@ -927,7 +933,7 @@ function addBaltaFlow() {
       Cloud.addBalta({ id: b.id, name: b.name, location: b.location, species: b.species, stand_count: b.standCount })
         .catch(() => {}); // best-effort backup în cloud
     }
-    toast("Baltă adăugată"); render();
+    toast("Baltă adăugată"); if (onAdded) onAdded(b); else render();
   } });
 }
 /* ============================================================
